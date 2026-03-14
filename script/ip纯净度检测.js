@@ -1,50 +1,44 @@
-// ip.js - 适配 pingip.cn (增强解析版)
+// ip.js - 基于 pingip.cn 源码的精确提取版
 function parseIPInfoFromHTML(html) {
-    // 辅助函数：使用多个正则尝试匹配
-    function extract(pattern, str, defaultValue = "未知") {
-        let match = str.match(pattern);
+    // 辅助函数：通过元素的 id 提取内容
+    function extractByPattern(pattern, defaultValue = "未知") {
+        let match = html.match(pattern);
         return match ? match[1].trim() : defaultValue;
     }
 
-    // 1. 提取 IP 地址
-    // 尝试匹配常见格式： "IP 地址</td><td>1.2.3.4" 或 "IP 地址 | 1.2.3.4"
-    let ip = extract(/IP\s*地址[：:|\s]*<\/?[^>]*>\s*([0-9.]+)/i, html);
-    if (ip === "未知") {
-        // 后备：直接匹配页面中第一个出现的IPv4地址
-        let fallback = html.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
+    // 1. 提取 IP 地址 (基于 id="ipinfo-ip")
+    let ip = extractByPattern(/<span[^>]*id="ipinfo-ip"[^>]*>([^<]+)<\/span>/i);
+    if (ip === "未知" || ip.includes("加载中")) {
+        // 后备：直接匹配第一个 IPv6 或 IPv4 地址
+        let fallback = html.match(/\b([0-9a-f:]+:[0-9a-f:]+|[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b/);
         ip = fallback ? fallback[1] : "未检测到IP";
     }
 
-    // 2. 提取地理位置
-    let location = extract(/地理位置[：:|\s]*<\/?[^>]*>\s*([^<]+)/i, html);
-    if (location === "未知") {
-        // 可能显示为 "中国 北京"
-        let locMatch = html.match(/(?:[>]?\s*)([\u4e00-\u9fa5]+\s*[\u4e00-\u9fa5]*)(?=<\/)/);
-        location = locMatch ? locMatch[1] : "未知";
+    // 2. 提取地理位置 (基于 id="ipinfo-location-text")
+    let location = extractByPattern(/<span[^>]*id="ipinfo-location-text"[^>]*>([^<]+)<\/span>/i);
+    if (location === "未知" || location.includes("加载中")) {
+        location = "未知";
     }
 
-    // 3. 提取风险评级
-    let risk = extract(/风险[^>]*>[^<]*<\/[^>]*>\s*([^<]+)/i, html);
-    if (risk === "未知") {
-        // 直接查找 "低风险"、"高风险" 等关键词
-        let riskMatch = html.match(/(低风险|高风险|干净|可疑|正常)/);
+    // 3. 提取风险评分 (基于 id="risk-score")
+    let risk = extractByPattern(/<span[^>]*id="risk-score"[^>]*>([^<]+)<\/span>/i);
+    if (risk === "未知" || risk.includes("加载中")) {
+        // 如果没找到，尝试直接匹配 "低风险"、"高风险" 等关键词
+        let riskMatch = html.match(/(\d+%\s*[极高|高|中|低|极低]*)/);
         risk = riskMatch ? riskMatch[1] : "未知";
     }
 
-    // 4. 判断是否纯净
-    let isClean = risk.includes("低风险") || risk.includes("干净") || risk.includes("正常");
-
-    // 调试：打印部分HTML前500字符
-    console.log("HTML片段: " + html.substring(0, 500).replace(/\s+/g, ' '));
+    // 4. 判断是否纯净：基于风险评分中的关键词（如“极低”、“低风险”）
+    let isClean = risk.includes("极低") || risk.includes("低风险") || risk.includes("低");
 
     return { ip, location, risk, isClean };
 }
 
 function main() {
-    console.log("脚本开始执行，目标: pingip.cn");
+    console.log("脚本开始执行，目标: pingip.cn (精确提取版)");
 
     const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
     };
@@ -60,7 +54,6 @@ function main() {
             return;
         }
 
-        console.log("HTTP状态码: " + response.status);
         if (response.status !== 200) {
             $notification.post("IP检测", "错误", "状态码 " + response.status);
             $done();
