@@ -1,61 +1,48 @@
-// 脚本名称: IP纯净度检测 (通用脚本版)
+// 脚本名称: IP纯净度检测 (通用脚本版 - 无参数版)
 
-// 从HTML中解析IP和纯净度信息的函数 (和之前逻辑一致)
 function parseIPInfoFromHTML(html) {
-    // 1. 提取IP地址
     let ipMatch = html.match(/(?:当前IP[：:]\s*|>)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})</);
     let ip = ipMatch ? ipMatch[1] : "未检测到IP";
 
-    // 2. 尝试判断是否纯净 (需要你根据 ippure.com 实际页面内容调整关键词)
     let isClean = !html.includes("数据中心IP") && 
                   !html.includes("代理IP") && 
                   html.includes("干净"); 
 
-    // 3. 获取位置信息
     let locationMatch = html.match(/(?:所在地[：:]\s*|>)([^<]+)(?=<\/)/);
     let location = locationMatch ? locationMatch[1].trim() : "未知";
 
     return { ip, isClean, location };
 }
 
-// 通用脚本的主入口
 async function main() {
-    const title = $argument?.notification_title || "IP纯净度检测";
+    // 固定标题，不再依赖 $argument
+    const title = "IP纯净度检测";
 
-    // 使用 $httpClient 主动请求 ippure.com [citation:5]
     $httpClient.get("http://ippure.com", function(error, response, data) {
         if (error) {
             console.log("请求失败: " + error);
             $notification.post(title, "错误", "无法访问 ippure.com: " + error);
-            $done(); // 脚本结束
+            $done();
             return;
         }
 
-        // 检查HTTP状态码
         if (response.status !== 200) {
             $notification.post(title, "错误", `网站返回状态码: ${response.status}`);
             $done();
             return;
         }
 
-        // 解析获取到的HTML内容
         const info = parseIPInfoFromHTML(data);
         
-        // 构建通知消息
         let message = `IP: ${info.ip}\n`;
         message += `位置: ${info.location}\n`;
         message += `状态: ${info.isClean ? "✅ 纯净" : "⚠️ 非纯净 (可能是机房IP)"}`;
         
-        // 发送系统通知 [citation:5]
         $notification.post(title, message, "点击查看详情");
-        
-        // 在Egern的控制台输出日志，方便调试
         console.log(JSON.stringify(info, null, 2));
 
-        // 通用脚本结束，必须调用 $done() [citation:5]
         $done();
     });
 }
 
-// 执行主函数
 main();
