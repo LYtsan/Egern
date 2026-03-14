@@ -1,0 +1,13 @@
+scriptings:
+  # 将之前的 http_response 替换为 generic
+  - generic:
+      # 脚本名称，会显示在 Egern 的脚本列表中
+      name: "IP纯净度检测 (一键运行)"
+      # 脚本文件地址 (可以是本地路径或远程URL)
+      script_url: "https://raw.githubusercontent.com/LYtsan/Egern/refs/heads/main/script/ip纯净度检测"
+      # 或者使用本地路径 script_url: "local://ip-check-v2.js"
+      update_interval: 86400
+      timeout: 30
+      arguments:
+        # 自定义通知标题
+        notification_title: "当前IP信息"
